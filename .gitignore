@@ -19,6 +19,11 @@
 
 # production
 /build
+/build-check/
+/build-check-2/
+/build-verify/
+/build-firebase-check/
+/build-sidebar-check/
 
 # misc
 .DS_Store
@@ -32,6 +37,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
