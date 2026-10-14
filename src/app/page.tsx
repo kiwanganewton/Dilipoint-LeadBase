@@ -16,7 +16,7 @@ const icons: Record<Page, IconName> = { Dashboard: "dashboard", "Add New Lead": 
 const niceDate = (value: string) => new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(value));
 
 function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
-  const common = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  const common = { fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
   let shape: React.ReactNode;
   switch (name) {
     case "dashboard": shape = <><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></>; break;
@@ -127,7 +127,6 @@ export default function Home() {
       <div className="brand"><div className="brand-mark">L</div><div className="brand-copy"><strong>LeadBase</strong><span>by dilipoint</span></div><button className="sidebar-collapse-toggle" aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}><Icon name={sidebarCollapsed ? "chevron-right" : "chevron-left"} size={16}/></button><button className="mobile-sidebar-close" aria-label="Close navigation" onClick={() => setMobileSidebarOpen(false)}><Icon name="close" size={18}/></button></div>
       <div className="workspace-label">WORKSPACE</div>
       <nav className="side-nav" aria-label="Main navigation">{navItems.map((item) => <button key={item} className={`nav-item ${page === item ? "active" : ""}`} aria-label={item} onClick={() => navigate(item)}><span className="nav-icon"><Icon name={icons[item]}/></span><span className="nav-text">{item}</span>{item === "Cold Leads" && <span className="nav-count">{cold.length}</span>}</button>)}</nav>
-      <div className="sidebar-bottom"><div className="sidebar-line"/><div className="workspace-user"><div className="workspace-avatar">D</div><div><b>Dilipoint</b><span>Lead workspace</span></div><span className="dots">···</span></div></div>
     </aside>
     <section className="main-area">
       <header className="topbar"><button className="mobile-nav-toggle" aria-label="Open navigation" onClick={() => setMobileSidebarOpen(true)}><Icon name="menu" size={19}/></button><div className="crumb"><span className="crumb-workspace">Workspace</span><span className="crumb-separator">/</span> <b>{page === "Dashboard" ? "Overview" : page}</b></div><div className="top-actions"><span className={`today-pill ${loadError ? "offline" : ""}`}><i/> {loadError ? "Not connected" : "All data synced"}</span><button className="top-add" onClick={openAdd}><Icon name="plus" size={16}/><span className="top-add-label">Add new lead</span></button><div className="top-avatar">D</div></div></header>
