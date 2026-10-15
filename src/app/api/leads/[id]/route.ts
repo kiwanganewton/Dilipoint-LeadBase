@@ -14,7 +14,7 @@ export async function PATCH(request: NextRequest, context: Context) {
       if (result.conflict) return NextResponse.json({ error: "Lead not found or its status has changed. Refresh and try again." }, { status: 409 });
       return NextResponse.json({ lead: result.lead });
     }
-    const valid = validateLead(body.brandName, body.whatsappNumber);
+    const valid = validateLead(body.brandName, body.whatsappNumber, body.email);
     if ("error" in valid) return NextResponse.json({ error: valid.error }, { status: 400 });
     const result = await updateLead(id, valid);
     if (result.missing) return NextResponse.json({ error: "Lead not found." }, { status: 404 });

@@ -151,3 +151,10 @@ html,body,button,input,select,textarea{font-family:Arial,Helvetica,sans-serif!im
   .top-add>.ui-icon{width:24px;height:24px;margin:0;display:block;vertical-align:unset}
   .top-add-label,.top-avatar{display:none}
 }
+
+@media(max-width:720px){
+  .table-wrap table{min-width:790px}
+  .table-wrap:has(th:nth-child(7)) table{min-width:930px}
+}
+
+.email-cell{display:block;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

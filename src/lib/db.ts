@@ -2,8 +2,8 @@ import { applicationDefault, cert, getApps, initializeApp } from "firebase-admin
 import { getFirestore, Timestamp } from "firebase-admin/firestore";
 import { randomUUID } from "node:crypto";
 
-export type Lead = { id: string; brand_name: string; whatsapp_number: string; status: "Cold" | "Prospect"; date_added: string; date_converted: string | null };
-type LeadInput = { brandName: string; whatsappNumber: string; phoneKey: string };
+export type Lead = { id: string; brand_name: string; email: string; whatsapp_number: string; status: "Cold" | "Prospect"; date_added: string; date_converted: string | null };
+type LeadInput = { brandName: string; email: string; whatsappNumber: string; phoneKey: string };
 
 function firestore() {
   if (!getApps().length) {
@@ -27,18 +27,20 @@ function firestore() {
 
 function toLead(id: string, data: FirebaseFirestore.DocumentData): Lead {
   const iso = (value: unknown) => value instanceof Timestamp ? value.toDate().toISOString() : value instanceof Date ? value.toISOString() : typeof value === "string" ? value : null;
-  return { id, brand_name: data.brand_name, whatsapp_number: data.whatsapp_number, status: data.status, date_added: iso(data.date_added) ?? new Date(0).toISOString(), date_converted: iso(data.date_converted) };
+  return { id, brand_name: data.brand_name, email: typeof data.email === "string" ? data.email : "", whatsapp_number: data.whatsapp_number, status: data.status, date_added: iso(data.date_added) ?? new Date(0).toISOString(), date_converted: iso(data.date_converted) };
 }
 
 export function normalizePhone(value: string) { return value.replace(/\D/g, ""); }
 
-export function validateLead(brand: unknown, phone: unknown) {
+export function validateLead(brand: unknown, phone: unknown, emailValue?: unknown) {
   const brandName = typeof brand === "string" ? brand.trim() : "";
   const whatsappNumber = typeof phone === "string" ? phone.trim() : "";
   const phoneKey = normalizePhone(whatsappNumber);
+  const email = typeof emailValue === "string" ? emailValue.trim() : "";
   if (!brandName || brandName.length > 180) return { error: "Enter a brand name (up to 180 characters)." };
   if (phoneKey.length < 7 || phoneKey.length > 15) return { error: "Enter a valid phone number with 7 to 15 digits." };
-  return { brandName, whatsappNumber, phoneKey };
+  if (email.length > 254 || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) return { error: "Enter a valid email address." };
+  return { brandName, email, whatsappNumber, phoneKey };
 }
 
 export async function listLeads() {
@@ -67,8 +69,8 @@ export async function createLead(input: LeadInput) {
     }
     const now = Timestamp.now();
     transaction.set(indexRef, { lead_id: id });
-    transaction.set(leadRef, { brand_name: input.brandName, whatsapp_number: input.whatsappNumber, phone_key: input.phoneKey, status: "Cold", date_added: now, date_converted: null });
-    return { lead: toLead(id, { brand_name: input.brandName, whatsapp_number: input.whatsappNumber, status: "Cold", date_added: now, date_converted: null }) };
+    transaction.set(leadRef, { brand_name: input.brandName, email: input.email, whatsapp_number: input.whatsappNumber, phone_key: input.phoneKey, status: "Cold", date_added: now, date_converted: null });
+    return { lead: toLead(id, { brand_name: input.brandName, email: input.email, whatsapp_number: input.whatsappNumber, status: "Cold", date_added: now, date_converted: null }) };
   });
 }
 
@@ -88,8 +90,8 @@ export async function updateLead(id: string, input: LeadInput) {
       transaction.delete(db.collection("leadPhoneIndex").doc(oldKey));
       transaction.set(newIndexRef, { lead_id: id });
     } else if (!newIndex.exists) transaction.set(newIndexRef, { lead_id: id });
-    const updated = { ...old, brand_name: input.brandName, whatsapp_number: input.whatsappNumber, phone_key: input.phoneKey };
-    transaction.update(leadRef, { brand_name: input.brandName, whatsapp_number: input.whatsappNumber, phone_key: input.phoneKey });
+    const updated = { ...old, brand_name: input.brandName, email: input.email, whatsapp_number: input.whatsappNumber, phone_key: input.phoneKey };
+    transaction.update(leadRef, { brand_name: input.brandName, email: input.email, whatsapp_number: input.whatsappNumber, phone_key: input.phoneKey });
     return { lead: toLead(id, updated) };
   });
 }

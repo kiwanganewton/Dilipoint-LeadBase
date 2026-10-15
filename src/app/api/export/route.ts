@@ -17,20 +17,21 @@ export async function GET(request: NextRequest) {
     const workbook = new ExcelJS.Workbook();
     workbook.creator = "Dilipoint LeadBase"; workbook.created = new Date();
     const sheet = workbook.addWorksheet(status === "Cold" ? "Cold Leads" : "Prospects");
-    const headers = status === "Cold" ? ["Brand Name", "WhatsApp Number", "Date Added", "Status"] : ["Brand Name", "WhatsApp Number", "Date Added", "Date Converted to Prospect", "Status"];
+    const headers = status === "Cold" ? ["Brand Name", "Email", "WhatsApp Number", "Date Added", "Status"] : ["Brand Name", "Email", "WhatsApp Number", "Date Added", "Date Converted to Prospect", "Status"];
     sheet.addRow(headers);
     for (const row of rows) {
       const date = (value: string | Date | null) => value ? new Date(value) : "";
-      sheet.addRow(status === "Cold" ? [row.brand_name, row.whatsapp_number, date(row.date_added), row.status] : [row.brand_name, row.whatsapp_number, date(row.date_added), date(row.date_converted), row.status]);
+      sheet.addRow(status === "Cold" ? [row.brand_name, row.email, row.whatsapp_number, date(row.date_added), row.status] : [row.brand_name, row.email, row.whatsapp_number, date(row.date_added), date(row.date_converted), row.status]);
     }
     sheet.columns.forEach((column, index) => {
-      const longest = Math.max(headers[index].length, ...rows.map((r) => String(index === 0 ? r.brand_name : index === 1 ? r.whatsapp_number : "").length));
-      column.width = index === 0 ? Math.min(60, Math.max(20, longest + 2)) : index === 1 ? Math.min(32, Math.max(22, longest + 2)) : index === headers.length - 1 ? 14 : 24;
-      column.alignment = { vertical: "middle", wrapText: index === 0 };
+      const header = headers[index];
+      const longest = Math.max(header.length, ...rows.map((row) => String(header === "Brand Name" ? row.brand_name : header === "Email" ? row.email : header === "WhatsApp Number" ? row.whatsapp_number : header === "Status" ? row.status : header === "Date Added" ? row.date_added : row.date_converted ?? "").length));
+      column.width = header === "Brand Name" ? Math.min(60, Math.max(20, longest + 2)) : header === "Email" ? 34 : header === "WhatsApp Number" ? Math.min(32, Math.max(22, longest + 2)) : header === "Status" ? 14 : 25;
+      column.alignment = { vertical: "middle", wrapText: header === "Brand Name" || header === "Email" };
     });
     const head = sheet.getRow(1); head.height = 24; head.font = { bold: true, color: { argb: "FFFFFFFF" } }; head.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF26374A" } }; head.alignment = { vertical: "middle", wrapText: true };
     sheet.views = [{ state: "frozen", ySplit: 1 }]; sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: headers.length } };
-    for (let i = 2; i <= sheet.rowCount; i++) { const row = sheet.getRow(i); row.height = 30; row.eachCell((cell, col) => { cell.alignment = { vertical: "middle", wrapText: col === 1 }; if (col === 2) cell.numFmt = "@"; if (col === 3 || (status === "Prospect" && col === 4)) cell.numFmt = "dd mmm yyyy"; }); }
+    for (let i = 2; i <= sheet.rowCount; i++) { const row = sheet.getRow(i); row.height = 30; row.eachCell((cell, col) => { const header = headers[col - 1]; cell.alignment = { vertical: "middle", wrapText: header === "Brand Name" || header === "Email" }; if (header === "WhatsApp Number") cell.numFmt = "@"; if (header === "Date Added" || header === "Date Converted to Prospect") cell.numFmt = "dd mmm yyyy"; }); }
     const buffer = await workbook.xlsx.writeBuffer();
     const filename = `${status === "Cold" ? "Cold_Leads" : "Prospects"}_${new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Nairobi" }).format(new Date())}.xlsx`;
     return new NextResponse(buffer, { headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": `attachment; filename="${filename}"`, "Cache-Control": "no-store" } });

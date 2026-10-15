@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
   await connection();
   try {
     const body = await request.json();
-    const valid = validateLead(body.brandName, body.whatsappNumber);
+    const valid = validateLead(body.brandName, body.whatsappNumber, body.email);
     if ("error" in valid) return NextResponse.json({ error: valid.error }, { status: 400 });
     const result = await createLead(valid);
     if (result.duplicate) return NextResponse.json({ error: "This WhatsApp number already exists.", existing: result.duplicate }, { status: 409 });
