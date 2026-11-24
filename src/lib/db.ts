@@ -39,7 +39,7 @@ export function validateLead(brand: unknown, phoneValues: unknown, emailValue?: 
   const brandName = typeof brand === "string" ? brand.trim() : "";
   const submittedPhones = Array.isArray(phoneValues) ? phoneValues : [phoneValues];
   if (submittedPhones.length > 3) return { error: "Enter no more than three phone numbers." };
-  const phoneNumbers = submittedPhones.slice(0, 3).map((phone) => typeof phone === "string" ? phone.trim() : "");
+  const phoneNumbers = submittedPhones.slice(0, 3).map((phone) => typeof phone === "string" ? phone : "");
   while (phoneNumbers.length < 3) phoneNumbers.push("");
   const phoneNumber = phoneNumbers[0];
   const phoneKeys = phoneNumbers.map(normalizePhone);
@@ -49,8 +49,8 @@ export function validateLead(brand: unknown, phoneValues: unknown, emailValue?: 
   const city = typeof cityValue === "string" ? cityValue.trim() : "";
   const country = typeof countryValue === "string" && countryValue.trim() ? countryValue.trim().toUpperCase() : "TZ";
   if (!brandName || brandName.length > 180) return { error: "Enter a brand name (up to 180 characters)." };
-  if (!phoneKey || phoneKey.length < 7 || phoneKey.length > 15) return { error: "The first phone number is required and must have 7 to 15 digits." };
-  if (phoneKeys.slice(1).some((key, index) => phoneNumbers[index + 1] && (key.length < 7 || key.length > 15))) return { error: "Each additional phone number must have 7 to 15 digits." };
+  if (!/^\d{10}$/.test(phoneNumber)) return { error: "The first phone number is required and must be exactly 10 digits with no spaces or country code." };
+  if (phoneNumbers.slice(1).some((phone) => phone !== "" && !/^\d{10}$/.test(phone))) return { error: "Each additional phone number must be exactly 10 digits with no spaces or country code." };
   if (new Set(populatedPhoneKeys).size !== populatedPhoneKeys.length) return { error: "Each phone number must be different." };
   if (email.length > 254 || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) return { error: "Enter a valid email address." };
   if (city.length > 100) return { error: "City must be 100 characters or fewer." };
