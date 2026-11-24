@@ -14,11 +14,11 @@ export async function PATCH(request: NextRequest, context: Context) {
       if (result.conflict) return NextResponse.json({ error: "Lead not found or its status has changed. Refresh and try again." }, { status: 409 });
       return NextResponse.json({ lead: result.lead });
     }
-    const valid = validateLead(body.brandName, body.whatsappNumber, body.email);
+    const valid = validateLead(body.brandName, body.phoneNumbers ?? body.phoneNumber, body.email, body.city, body.country);
     if ("error" in valid) return NextResponse.json({ error: valid.error }, { status: 400 });
     const result = await updateLead(id, valid);
     if (result.missing) return NextResponse.json({ error: "Lead not found." }, { status: 404 });
-    if (result.duplicate) return NextResponse.json({ error: "This WhatsApp number already exists.", existing: result.duplicate }, { status: 409 });
+    if (result.duplicate) return NextResponse.json({ error: "This phone number already exists.", existing: result.duplicate }, { status: 409 });
     return NextResponse.json({ lead: result.lead });
   } catch (error) {
     console.error("PATCH /api/leads", error);
@@ -26,11 +26,14 @@ export async function PATCH(request: NextRequest, context: Context) {
   }
 }
 
-export async function DELETE(_request: NextRequest, context: Context) {
+export async function DELETE(request: NextRequest, context: Context) {
   await connection();
   try {
     const { id } = await context.params;
-    if (!await deleteLead(id)) return NextResponse.json({ error: "Lead not found." }, { status: 404 });
+    const body = await request.json().catch(() => ({}));
+    const result = await deleteLead(id, body.confirmation);
+    if (result.missing) return NextResponse.json({ error: "Lead not found." }, { status: 404 });
+    if (result.confirmationMismatch) return NextResponse.json({ error: "Confirmation ID did not match this record. Nothing was deleted." }, { status: 400 });
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("DELETE /api/leads", error);

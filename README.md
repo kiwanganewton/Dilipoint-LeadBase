@@ -17,7 +17,7 @@ A shared lead management MVP built with Next.js, Firebase Admin/Cloud Firestore,
 
 The server uses Firebase Admin, so these credentials stay on the server. The Admin SDK bypasses Firestore Security Rules; restrict and protect the deployed app and service account accordingly.
 
-The app writes lead documents to `leads` and uses `leadPhoneIndex` as an atomic uniqueness index. Firestore transactions create/update both together, which prevents two simultaneous submissions from claiming the same normalized WhatsApp number. Firestore creates these collections on first write; no SQL setup or manual indexes are required.
+The app writes lead documents to `leads` and uses `leadPhoneIndex` as an atomic uniqueness index. Firestore transactions create/update both together, which prevents two simultaneous submissions from claiming the same normalized phone number. Firestore creates these collections on first write; no SQL setup or manual indexes are required.
 
 You can also provide `FIREBASE_SERVICE_ACCOUNT_JSON` as a single-line JSON environment variable, or use Google Application Default Credentials by setting `FIREBASE_PROJECT_ID` in an environment that supplies ADC.
 
