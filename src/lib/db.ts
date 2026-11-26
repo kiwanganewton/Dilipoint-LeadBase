@@ -1,9 +1,10 @@
 import { applicationDefault, cert, getApps, initializeApp } from "firebase-admin/app";
 import { FieldValue, getFirestore, Timestamp } from "firebase-admin/firestore";
 import { randomUUID } from "node:crypto";
+import { industryOptions } from "@/lib/industries";
 
-export type Lead = { id: string; lead_number: number; brand_name: string; email: string; phone_number: string; phone_numbers: string[]; city: string; country: string; status: "Cold" | "Prospect"; date_added: string; date_converted: string | null };
-type LeadInput = { brandName: string; email: string; phoneNumber: string; phoneNumbers: string[]; city: string; country: string; phoneKey: string; phoneKeys: string[] };
+export type Lead = { id: string; lead_number: number; brand_name: string; email: string; phone_number: string; phone_numbers: string[]; city: string; country: string; industry: string; status: "Cold" | "Prospect"; date_added: string; date_converted: string | null };
+type LeadInput = { brandName: string; email: string; phoneNumber: string; phoneNumbers: string[]; city: string; country: string; industry: string; phoneKey: string; phoneKeys: string[] };
 
 function firestore() {
   if (!getApps().length) {
@@ -30,12 +31,12 @@ function toLead(id: string, data: FirebaseFirestore.DocumentData): Lead {
   const primaryPhone = typeof data.phone_number === "string" ? data.phone_number : typeof data.whatsapp_number === "string" ? data.whatsapp_number : "";
   const storedPhones = Array.isArray(data.phone_numbers) ? data.phone_numbers : Array.isArray(data.whatsapp_numbers) ? data.whatsapp_numbers : [primaryPhone, "", ""];
   const phoneNumbers = [0, 1, 2].map((index) => typeof storedPhones[index] === "string" ? storedPhones[index] : "");
-  return { id, lead_number: Number.isSafeInteger(data.lead_number) ? data.lead_number : 0, brand_name: data.brand_name, email: typeof data.email === "string" ? data.email : "", phone_number: primaryPhone || phoneNumbers[0] || "", phone_numbers: phoneNumbers, city: typeof data.city === "string" ? data.city : "", country: typeof data.country === "string" && data.country.trim() ? data.country.trim().toUpperCase() : "TZ", status: data.status, date_added: iso(data.date_added) ?? new Date(0).toISOString(), date_converted: iso(data.date_converted) };
+  return { id, lead_number: Number.isSafeInteger(data.lead_number) ? data.lead_number : 0, brand_name: data.brand_name, email: typeof data.email === "string" ? data.email : "", phone_number: primaryPhone || phoneNumbers[0] || "", phone_numbers: phoneNumbers, city: typeof data.city === "string" ? data.city : "", country: typeof data.country === "string" && data.country.trim() ? data.country.trim().toUpperCase() : "TZ", industry: typeof data.industry === "string" && industryOptions.includes(data.industry as (typeof industryOptions)[number]) ? data.industry : "Other", status: data.status, date_added: iso(data.date_added) ?? new Date(0).toISOString(), date_converted: iso(data.date_converted) };
 }
 
 export function normalizePhone(value: string) { return value.replace(/\D/g, ""); }
 
-export function validateLead(brand: unknown, phoneValues: unknown, emailValue?: unknown, cityValue?: unknown, countryValue?: unknown) {
+export function validateLead(brand: unknown, phoneValues: unknown, emailValue?: unknown, cityValue?: unknown, countryValue?: unknown, industryValue?: unknown) {
   const brandName = typeof brand === "string" ? brand.trim() : "";
   const submittedPhones = Array.isArray(phoneValues) ? phoneValues : [phoneValues];
   if (submittedPhones.length > 3) return { error: "Enter no more than three phone numbers." };
@@ -48,6 +49,7 @@ export function validateLead(brand: unknown, phoneValues: unknown, emailValue?: 
   const email = typeof emailValue === "string" ? emailValue.trim() : "";
   const city = typeof cityValue === "string" ? cityValue.trim() : "";
   const country = typeof countryValue === "string" && countryValue.trim() ? countryValue.trim().toUpperCase() : "TZ";
+  const industry = typeof industryValue === "string" ? industryValue.trim() : "";
   if (!brandName || brandName.length > 180) return { error: "Enter a brand name (up to 180 characters)." };
   if (!/^\d{10}$/.test(phoneNumber)) return { error: "The first phone number is required and must be exactly 10 digits with no spaces or country code." };
   if (phoneNumbers.slice(1).some((phone) => phone !== "" && !/^\d{10}$/.test(phone))) return { error: "Each additional phone number must be exactly 10 digits with no spaces or country code." };
@@ -55,7 +57,8 @@ export function validateLead(brand: unknown, phoneValues: unknown, emailValue?: 
   if (email.length > 254 || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) return { error: "Enter a valid email address." };
   if (city.length > 100) return { error: "City must be 100 characters or fewer." };
   if (!/^[A-Z]{2}$/.test(country)) return { error: "Enter a two-letter country code, such as TZ." };
-  return { brandName, email, phoneNumber, phoneNumbers, city, country, phoneKey, phoneKeys: populatedPhoneKeys };
+  if (!industryOptions.includes(industry as (typeof industryOptions)[number])) return { error: "Choose an industry." };
+  return { brandName, email, phoneNumber, phoneNumbers, city, country, industry, phoneKey, phoneKeys: populatedPhoneKeys };
 }
 
 async function ensureLeadNumbers(db = firestore()) {
@@ -85,13 +88,14 @@ export async function listLeads() {
   const db = firestore();
   await ensureLeadNumbers(db);
   const snapshot = await db.collection("leads").get();
-  const needsBackfill = snapshot.docs.filter((doc) => typeof doc.get("city") !== "string" || typeof doc.get("country") !== "string" || !String(doc.get("country") ?? "").trim() || typeof doc.get("phone_number") !== "string" || !Array.isArray(doc.get("phone_numbers")) || doc.get("whatsapp_number") !== undefined || doc.get("whatsapp_numbers") !== undefined);
+  const needsBackfill = snapshot.docs.filter((doc) => typeof doc.get("city") !== "string" || typeof doc.get("country") !== "string" || !String(doc.get("country") ?? "").trim() || typeof doc.get("phone_number") !== "string" || !Array.isArray(doc.get("phone_numbers")) || doc.get("whatsapp_number") !== undefined || doc.get("whatsapp_numbers") !== undefined || !industryOptions.includes(String(doc.get("industry") ?? "") as (typeof industryOptions)[number]));
   for (let offset = 0; offset < needsBackfill.length; offset += 450) {
     const batch = db.batch();
     for (const doc of needsBackfill.slice(offset, offset + 450)) {
       const data: Record<string, unknown> = {};
       if (typeof doc.get("city") !== "string") data.city = "";
       if (typeof doc.get("country") !== "string" || !String(doc.get("country") ?? "").trim()) data.country = "TZ";
+      if (!industryOptions.includes(String(doc.get("industry") ?? "") as (typeof industryOptions)[number])) data.industry = "Other";
       const primary = typeof doc.get("phone_number") === "string" ? doc.get("phone_number") : typeof doc.get("whatsapp_number") === "string" ? doc.get("whatsapp_number") : "";
       const existingNumbers = Array.isArray(doc.get("phone_numbers")) ? doc.get("phone_numbers") : Array.isArray(doc.get("whatsapp_numbers")) ? doc.get("whatsapp_numbers") : [primary, "", ""];
       if (typeof doc.get("phone_number") !== "string") data.phone_number = primary;
@@ -132,7 +136,7 @@ export async function createLead(input: LeadInput) {
     const now = Timestamp.now();
     for (const indexRef of indexRefs) transaction.set(indexRef, { lead_id: id });
     transaction.set(counterRef, { value: leadNumber, initialized: true });
-    const newLead = { lead_number: leadNumber, brand_name: input.brandName, email: input.email, phone_number: input.phoneNumber, phone_numbers: input.phoneNumbers, city: input.city, country: input.country, phone_key: input.phoneKey, phone_keys: input.phoneKeys, status: "Cold", date_added: now, date_converted: null };
+    const newLead = { lead_number: leadNumber, brand_name: input.brandName, email: input.email, phone_number: input.phoneNumber, phone_numbers: input.phoneNumbers, city: input.city, country: input.country, industry: input.industry, phone_key: input.phoneKey, phone_keys: input.phoneKeys, status: "Cold", date_added: now, date_converted: null };
     transaction.set(leadRef, newLead);
     return { lead: toLead(id, newLead) };
   });
@@ -160,7 +164,7 @@ export async function updateLead(id: string, input: LeadInput) {
     }
     for (const key of oldPhoneKeys) if (!input.phoneKeys.includes(key) && indexByKey.get(key)?.get("lead_id") === id) transaction.delete(indexByKey.get(key)!.ref);
     for (const key of input.phoneKeys) transaction.set(indexByKey.get(key)!.ref, { lead_id: id });
-    const update = { brand_name: input.brandName, email: input.email, phone_number: input.phoneNumber, phone_numbers: input.phoneNumbers, city: input.city, country: input.country, phone_key: input.phoneKey, phone_keys: input.phoneKeys, whatsapp_number: FieldValue.delete(), whatsapp_numbers: FieldValue.delete() };
+    const update = { brand_name: input.brandName, email: input.email, phone_number: input.phoneNumber, phone_numbers: input.phoneNumbers, city: input.city, country: input.country, industry: input.industry, phone_key: input.phoneKey, phone_keys: input.phoneKeys, whatsapp_number: FieldValue.delete(), whatsapp_numbers: FieldValue.delete() };
     const updated = { ...old, ...update };
     transaction.update(leadRef, update);
     return { lead: toLead(id, updated) };

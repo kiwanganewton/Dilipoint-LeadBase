@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
   await connection();
   try {
     const body = await request.json();
-    const valid = validateLead(body.brandName, body.phoneNumbers ?? body.phoneNumber, body.email, body.city, body.country);
+    const valid = validateLead(body.brandName, body.phoneNumbers ?? body.phoneNumber, body.email, body.city, body.country, body.industry);
     if ("error" in valid) return NextResponse.json({ error: valid.error }, { status: 400 });
     const result = await createLead(valid);
     if (result.duplicate) return NextResponse.json({ error: "This phone number already exists.", existing: result.duplicate }, { status: 409 });

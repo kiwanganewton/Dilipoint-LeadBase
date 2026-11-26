@@ -1,6 +1,7 @@
 import { connection, NextRequest, NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 import { listLeads } from "@/lib/db";
+import { industryOptions } from "@/lib/industries";
 
 const sorts = new Set(["brand-asc", "brand-desc", "date-asc", "date-desc", "phone-asc", "phone-desc"]);
 
@@ -8,8 +9,10 @@ export async function GET(request: NextRequest) {
   await connection();
   try {
     const format = request.nextUrl.searchParams.get("format");
+    const requestedIndustry = request.nextUrl.searchParams.get("industry") ?? "";
+    const industry = industryOptions.includes(requestedIndustry as (typeof industryOptions)[number]) ? requestedIndustry : "";
     if (format === "meta") {
-      const leads = await listLeads();
+      const leads = (await listLeads()).filter((lead) => !industry || lead.industry === industry);
       const audienceRows = leads.flatMap((lead) => {
         const normalizedPhones = lead.phone_numbers.slice(0, 3).map((value) => {
         let digits = value.replace(/\D/g, "");
@@ -39,18 +42,19 @@ export async function GET(request: NextRequest) {
     const status = request.nextUrl.searchParams.get("status") === "Prospect" ? "Prospect" : "Cold";
     const requestedSort = request.nextUrl.searchParams.get("sort") ?? "brand-asc";
     const sort = sorts.has(requestedSort) ? requestedSort : "brand-asc";
-    const rows = (await listLeads()).filter((lead) => lead.status === status).sort((a, b) => {
+    const rows = (await listLeads()).filter((lead) => lead.status === status && (!industry || lead.industry === industry)).sort((a, b) => {
       const comparison = sort.startsWith("brand") ? a.brand_name.localeCompare(b.brand_name) : sort.startsWith("date") ? Date.parse(a.date_added) - Date.parse(b.date_added) : a.phone_number.replace(/\D/g, "").localeCompare(b.phone_number.replace(/\D/g, ""));
       return (sort.endsWith("desc") ? -comparison : comparison) || a.id.localeCompare(b.id);
     });
     const workbook = new ExcelJS.Workbook();
     workbook.creator = "Dilipoint LeadBase"; workbook.created = new Date();
     const sheet = workbook.addWorksheet(status === "Cold" ? "Cold Leads" : "Prospects");
-    const headers = status === "Cold" ? ["Lead ID", "Brand Name", "Email", "Phone Number 1", "Phone Number 2", "Phone Number 3", "Date Added", "Status"] : ["Lead ID", "Brand Name", "Email", "Phone Number 1", "Phone Number 2", "Phone Number 3", "Date Added", "Date Converted to Prospect", "Status"];
+    const headers = status === "Cold" ? ["Lead ID", "Brand Name", "Industry", "Email", "Phone Number 1", "Phone Number 2", "Phone Number 3", "Date Added", "Status"] : ["Lead ID", "Brand Name", "Industry", "Email", "Phone Number 1", "Phone Number 2", "Phone Number 3", "Date Added", "Date Converted to Prospect", "Status"];
     sheet.addRow(headers);
     const valueFor = (row: typeof rows[number], header: string) => {
       if (header === "Lead ID") return `${status === "Cold" ? "L" : "P"}${String(row.lead_number).padStart(5, "0")}`;
       if (header === "Brand Name") return row.brand_name;
+      if (header === "Industry") return row.industry;
       if (header === "Email") return row.email;
       if (header.startsWith("Phone Number")) return row.phone_numbers[Number(header.slice(-1)) - 1] ?? "";
       if (header === "Date Added") return new Date(row.date_added);
@@ -63,7 +67,7 @@ export async function GET(request: NextRequest) {
     sheet.columns.forEach((column, index) => {
       const header = headers[index];
       const longest = Math.max(header.length, ...rows.map((row) => String(valueFor(row, header)).length));
-      column.width = header === "Lead ID" ? 14 : header === "Brand Name" ? Math.min(60, Math.max(20, longest + 2)) : header === "Email" ? 34 : header.startsWith("Phone Number") ? Math.min(32, Math.max(22, longest + 2)) : header === "Status" ? 14 : 25;
+      column.width = header === "Lead ID" ? 14 : header === "Brand Name" ? Math.min(60, Math.max(20, longest + 2)) : header === "Industry" ? Math.min(36, Math.max(24, longest + 2)) : header === "Email" ? 34 : header.startsWith("Phone Number") ? Math.min(32, Math.max(22, longest + 2)) : header === "Status" ? 14 : 25;
       column.alignment = { vertical: "middle", wrapText: header === "Brand Name" || header === "Email" };
     });
     const head = sheet.getRow(1); head.height = 24; head.font = { bold: true, color: { argb: "FFFFFFFF" } }; head.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF26374A" } }; head.alignment = { vertical: "middle", wrapText: true };

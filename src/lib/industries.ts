@@ -1,0 +1,25 @@
+export const industryOptions = [
+  "Advertising & Marketing",
+  "Agriculture",
+  "Automotive",
+  "Beauty & Wellness",
+  "Construction",
+  "Education",
+  "Finance & Insurance",
+  "Food & Beverage",
+  "Government",
+  "Healthcare",
+  "Hospitality & Tourism",
+  "Manufacturing",
+  "Media & Entertainment",
+  "Nonprofit",
+  "Professional Services",
+  "Real Estate",
+  "Retail & E-commerce",
+  "Technology & IT",
+  "Telecommunications",
+  "Transportation & Logistics",
+  "Other",
+] as const;
+
+export type Industry = (typeof industryOptions)[number];
